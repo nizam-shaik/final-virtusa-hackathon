@@ -1,0 +1,61 @@
+"""
+Streamlit Web Application for HLD Generation
+Main entry point with three tabs: HLD Generation, ML Training, Quality Prediction
+"""
+
+# TODO: Import Streamlit and related UI libraries
+# TODO: Import workflow and state management modules
+# TODO: Import ML modules for training and inference
+# TODO: Define CSS styles for UI components (cards, pills, grids, etc.)
+# TODO: Implement helper functions for JSON normalization (_to_py, _as_list)
+# TODO: Implement UI rendering functions
+#       - render_workflow_status(state) - Display workflow processing status table
+#       - render_authentication_ui(auth_data) - Show auth flows, actors, threats
+#       - render_integrations_ui(integrations_data) - Display external integrations
+#       - render_entities_ui(entities_data) - Show domain entities in tables and cards
+#       - render_apis_ui(apis_data) - Display API specifications
+#       - render_use_cases_ui(use_cases) - Show use cases as bullet list
+#       - render_nfrs_ui(nfrs) - Display NFRs by category
+#       - render_risks_ui(risks_data) - Show risk assessment matrix
+#       - render_quality_score_ui(quality_score) - Display quality metrics and recommendations
+# TODO: Implement PDF file management
+#       - list_requirement_pdfs(folder) - List available PDFs
+#       - get_pdf_info(pdf_path) - Get file metadata
+# TODO: Implement Tab 1: HLD Generation
+#       - Display available PDFs and allow selection
+#       - Workflow type selection (sequential/parallel/conditional)
+#       - Diagram configuration (render_images, format, renderer, theme)
+#       - Generate HLD button with disabled state when no PDF selected
+#       - Progress tracking and status updates
+#       - Display results in sections (extracted, auth, integrations, entities, APIs, use cases, NFRs, risks, diagrams)
+#       - Download buttons for HLD.md, HLD.html, Diagrams.html
+# TODO: Implement render_ml_training_section()
+#       - Dataset generation button (generates 30,000 samples)
+#       - Display dataset statistics
+#       - Model training button with progress tracking
+#       - Display model performance metrics (R2, RMSE, MAE, MAPE)
+# TODO: Implement render_ml_inference_section()
+#       - Load trained models from disk
+#       - Quick Scenario tab with predefined scenarios (Excellent/Good/Poor HLD)
+#       - Custom Features tab with sliders for key features
+#       - Feature Guide tab showing value ranges and guidance
+#       - Display predictions from multiple models and ensemble average
+# TODO: Implement main() function
+#       - Set Streamlit page config (title, layout)
+#       - Create three main tabs
+#       - Populate each tab with appropriate content
+#       - Handle errors and display error messages
+# TODO: Add error handling throughout
+#       - Catch and display workflow errors
+#       - Catch and display ML training errors
+#       - Show user-friendly error messages
+# TODO: Consider performance optimizations
+#       - Cache PDF list
+#       - Cache ML model loading
+#       - Use Streamlit session state for form data
+# TODO: Add help text and tooltips for UI elements
+# TODO: Add configuration options in sidebar for Tab 1
+"""
+Streamlit Web Application for HLD Generation
+Main entry point with three tabs: HLD Generation, ML Training, Quality Prediction
+"""
