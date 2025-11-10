@@ -37,9 +37,12 @@ class HLDQualityPredictor:
 				feature_names = []
 		self.feature_names = feature_names
 		self.models: Dict[str, object] = {}
+		self.scaler = None
+		self.selected_features = None
+		self.training_metadata = None
 
 	def load_models_from_disk(self) -> bool:
-		"""Load previously trained models.
+		"""Load previously trained models, scaler, and metadata.
 
 		Gracefully handles missing directory by creating it and returning False
 		rather than raising an exception.
@@ -53,12 +56,29 @@ class HLDQualityPredictor:
 				logger.error(f"Could not create model directory: {e}")
 				return False
 		try:
+			# Load models
 			for fname in os.listdir(self.model_dir):
 				if fname.endswith('_model.pkl'):
 					model_name = fname.split('_')[0]
 					with open(os.path.join(self.model_dir, fname), 'rb') as f:
 						self.models[model_name] = pickle.load(f)
 					logger.info(f"Loaded model: {model_name}")
+			
+			# Load scaler if exists
+			scaler_path = os.path.join(self.model_dir, "scaler.pkl")
+			if os.path.exists(scaler_path):
+				with open(scaler_path, 'rb') as f:
+					self.scaler = pickle.load(f)
+				logger.info("Loaded scaler")
+			
+			# Load metadata if exists
+			metadata_path = os.path.join(self.model_dir, "training_metadata.pkl")
+			if os.path.exists(metadata_path):
+				with open(metadata_path, 'rb') as f:
+					self.training_metadata = pickle.load(f)
+					self.selected_features = self.training_metadata.get('selected_features')
+				logger.info(f"Loaded metadata. Selected features: {len(self.selected_features) if self.selected_features else 'None'}")
+			
 			logger.info(f"Total models loaded: {len(self.models)}")
 			return bool(self.models)
 		except Exception as e:
@@ -67,33 +87,48 @@ class HLDQualityPredictor:
 
 	def predict(self, features: Dict[str, float]) -> Dict[str, float]:
 		logger.info(f"Predicting quality with features: {features}")
-		# Ensure we have a complete feature set; if predictor knows fewer than the model, we'll realign per-model below
-		missing = [name for name in self.feature_names if name not in features]
-		if missing:
-			logger.warning(f"Adding missing features with default 0.0: {missing}")
-			for m in missing:
-				features[m] = 0.0
+		
+		# Filter to selected features if available
+		if self.selected_features:
+			features = {k: features.get(k, 0.0) for k in self.selected_features}
+			logger.info(f"Using {len(self.selected_features)} selected features")
+		else:
+			# Ensure we have a complete feature set
+			missing = [name for name in self.feature_names if name not in features]
+			if missing:
+				logger.warning(f"Adding missing features with default 0.0: {missing}")
+				for m in missing:
+					features[m] = 0.0
 
-		# Prepare a base row with the predictor's feature order (may be < model's expectation; we'll adjust per model)
-		row_base = {name: features.get(name, 0.0) for name in self.feature_names}
+		# Prepare a base row with the predictor's feature order
+		feature_list = self.selected_features if self.selected_features else self.feature_names
+		row_base = {name: features.get(name, 0.0) for name in feature_list}
 
 		preds: Dict[str, float] = {}
 		for name, model in self.models.items():
 			try:
-				# If model exposes `feature_names_in_`, construct input using exactly those names
-				model_feature_names = getattr(model, 'feature_names_in_', None)
-				X_input = None
+				# Create DataFrame for proper feature alignment
 				try:
 					import pandas as pd
-					expected_cols = list(model_feature_names) if model_feature_names is not None else self.feature_names
-					row = {fn: features.get(fn, row_base.get(fn, 0.0)) for fn in expected_cols}
-					X_input = pd.DataFrame([row], columns=expected_cols)
-				except Exception:
-					# Fallback to numpy array if pandas isn't available
-					expected_cols = list(model_feature_names) if model_feature_names is not None else self.feature_names
-					X_input = np.array([row_base.get(fn, 0.0) for fn in expected_cols]).reshape(1, -1)
-
-				preds[name] = float(model.predict(X_input)[0])
+					X_input = pd.DataFrame([row_base], columns=feature_list)
+					
+					# Apply scaling if scaler exists
+					if self.scaler is not None:
+						X_input = pd.DataFrame(
+							self.scaler.transform(X_input),
+							columns=X_input.columns
+						)
+						logger.info(f"Applied scaling for {name}")
+					
+					preds[name] = float(model.predict(X_input)[0])
+				except Exception as e:
+					# Fallback to numpy array
+					logger.warning(f"DataFrame prediction failed for {name}, using numpy: {e}")
+					X_input = np.array([row_base.get(fn, 0.0) for fn in feature_list]).reshape(1, -1)
+					if self.scaler is not None:
+						X_input = self.scaler.transform(X_input)
+					preds[name] = float(model.predict(X_input)[0])
+				
 				logger.info(f"Prediction from {name}: {preds[name]}")
 			except Exception as e:
 				logger.error(f"Model {name} prediction failed: {e}")
