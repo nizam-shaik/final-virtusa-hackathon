@@ -242,6 +242,9 @@ def main():
         log_box = st.empty()
         outputs_box = st.container()
         
+        # Initialize events list for workflow status tracking
+        events = []
+        
         # Determine if we should show output
         show_output = view_existing or (output_exists and not regenerate)
 
@@ -276,6 +279,9 @@ def main():
             
             # Mark that we should show output after generation
             show_output = True
+            
+            # Re-check if output exists after generation (to update UI state)
+            output_exists = (output_dir / "json").exists() and (output_dir / "json" / "authentication.json").exists()
         else:
             # Not regenerating, just viewing existing
             final_state = None
@@ -284,6 +290,69 @@ def main():
         if show_output or output_exists:
             with outputs_box:
                 st.markdown("## Results")
+                
+                # Workflow Status Table
+                st.markdown("### 📊 Workflow Execution Status")
+                
+                # Build workflow status from events or create default status
+                workflow_status = []
+                if events:
+                    # Track status per node
+                    node_status = {}
+                    for e in events:
+                        etype = e.get("type")
+                        node_name = e.get("node", "")
+                        
+                        if etype == "node_start":
+                            node_status[node_name] = {
+                                "Stage": node_name.replace("_", " ").title(),
+                                "Status": "🔄 Running",
+                                "Message": "Processing...",
+                            }
+                        elif etype == "node_complete":
+                            status_text = e.get("status", "completed")
+                            duration = e.get("duration", 0)
+                            node_status[node_name] = {
+                                "Stage": node_name.replace("_", " ").title(),
+                                "Status": "✅ Completed" if status_text == "completed" else "⚠️ Warning",
+                                "Message": f"Finished in {duration:.2f}s",
+                            }
+                        elif etype == "error":
+                            msg = e.get("message", "Unknown error")
+                            node_status[node_name] = {
+                                "Stage": node_name.replace("_", " ").title() if node_name else "Unknown",
+                                "Status": "❌ Error",
+                                "Message": msg,
+                            }
+                    
+                    workflow_status = list(node_status.values())
+                else:
+                    # Default status when viewing existing output (no events)
+                    default_stages = [
+                        "PDF Extraction",
+                        "Authentication Analysis",
+                        "Integrations Analysis",
+                        "Domain Modeling",
+                        "Behavior Analysis",
+                        "Diagram Generation",
+                        "Output Composition"
+                    ]
+                    workflow_status = [
+                        {
+                            "Stage": stage,
+                            "Status": "✅ Completed",
+                            "Message": "Previously generated",
+                        }
+                        for stage in default_stages
+                    ]
+                
+                if workflow_status:
+                    status_df = pd.DataFrame(workflow_status)
+                    st.dataframe(status_df, width="stretch", hide_index=True)
+                else:
+                    st.info("No workflow status available")
+                
+                st.markdown("---")
                 
                 # Determine output directory for the selected requirement once
                 output_dir = Path(__file__).resolve().parent / "output" / Path(selected_pdf).stem
@@ -350,7 +419,8 @@ def main():
                                 st.write(f"✓ {method}")
                         else:
                             st.caption("No authentication methods specified")
-                        
+                    
+                    with col2:
                         # OAuth providers OR idp_options
                         st.markdown("#### OAuth / IDP Providers")
                         providers = auth.get("oauth_providers") or auth.get("idp_options") or []
@@ -359,25 +429,6 @@ def main():
                                 st.write(f"• {provider}")
                         else:
                             st.caption("No OAuth providers specified")
-                    
-                    with col2:
-                        # Security features
-                        st.markdown("#### Security Features")
-                        sec_features = auth.get("security_features") or auth.get("features") or []
-                        if sec_features:
-                            for feature in sec_features:
-                                st.write(f"🔒 {feature}")
-                        else:
-                            st.caption("No security features specified")
-                        
-                        # Compliance requirements
-                        st.markdown("#### Compliance Requirements")
-                        compliance = auth.get("compliance") or auth.get("compliance_requirements") or []
-                        if compliance:
-                            for req in compliance:
-                                st.write(f"📋 {req}")
-                        else:
-                            st.caption("No compliance requirements specified")
                     
                     # Additional sections
                     if auth.get("security_policies"):
